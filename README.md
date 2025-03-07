@@ -42,8 +42,9 @@ AI湾湾-assistant/
 ### 1. 克隆项目
 
 ```bash
+提供给自定义服务端视觉能力：
 git clone https://github.com/vonweller/xiaozhi-esp32-server
-
+提供嵌入式客户端运行
 git clone https://github.com/vonweller/PyxiaozhiVL
 ```
 
