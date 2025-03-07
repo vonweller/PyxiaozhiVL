@@ -1,4 +1,4 @@
-# 语音助手项目
+# AI小智物联网项目
 
 ## 项目简介
 
@@ -17,7 +17,7 @@
 ## 项目结构
 
 ```
-voice-assistant/
+AI湾湾-assistant/
 │
 ├── README.md                   # 项目说明文件
 ├── main.py                     # 主程序入口
