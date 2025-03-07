@@ -24,7 +24,6 @@ voice-assistant/
 ├── Camera.py                   # 摄像头管理模块
 ├── VL.py                       # 图像识别模块
 ├── requirements.txt            # 项目依赖
-└── config.json                 # 配置文件（示例）
 ```
 
 ## 依赖库
@@ -41,13 +40,14 @@ voice-assistant/
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-username/voice-assistant.git
-cd voice-assistant
+git clone https://github.com/vonweller/xiaozhi-esp32-server
+
+git clone https://github.com/vonweller/PyxiaozhiVL
 ```
 
 ### 2. 安装依赖
-
 ```bash
+cd xiaozhiM10
 pip install -r requirements.txt
 ```
 
