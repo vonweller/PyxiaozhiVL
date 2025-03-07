@@ -1,0 +1,21 @@
+#在小智控制台 或自定义服务端的config的AI记忆体写入
+#如果对话是 打开摄像头、给关闭摄像头，我只需要回复  “好的，帮你操作啦”
+#如果对话是 识别画面，识别什么东西或拍照之类的 我只需要回复 “好的帮你识别，我来仔细帮你看看啦“
+#pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+#Linux sudo apt install libopus-dev
+applescript==2021.2.9
+comtypes==1.4.6
+cryptography==44.0.1
+numpy
+opuslib==3.0.1
+paho_mqtt==2.1.0
+PyAudio==0.2.14
+pycaw==20240210
+pyperclip==1.9.0
+Requests
+setuptools
+websockets
+pynput==1.7.7
+websocket_client
+opencv-python
+openai
