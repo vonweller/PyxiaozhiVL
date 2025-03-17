@@ -27,7 +27,7 @@ class ImageAnalyzer:
     def analyze_image(self, base64_image, prompt="图中描绘的是什么景象,请详细描述，因为用户可能是盲人")->str:
         """分析图片并返回结果"""
         completion = self.client.chat.completions.create(
-            model="qwen-omni-turbo",
+            model="glm-4v-flash",
             messages=[
                 {
                     "role": "system",

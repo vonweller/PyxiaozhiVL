@@ -5,45 +5,58 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 import threading
+from xiaozhiM10.src.iot.thing import Thing
+from xiaozhiM10.src.iot.things import VL
 
-logger = logging.getLogger("CameraManager")
+logger = logging.getLogger("Camera")
 
 
-class CameraManager:
-    """摄像头管理器 - 单例模式"""
-
-    _instance = None
-    _lock = threading.Lock()
-
+class Camera(Thing):
     # 配置文件路径
     CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
     CONFIG_FILE = CONFIG_DIR / "camera_config.json"
-
     # 默认配置
     DEFAULT_CONFIG = {
         "camera_index": 0,  # 默认摄像头索引
         "frame_width": 640,  # 帧宽度
         "frame_height": 480,  # 帧高度
         "fps": 30,  # 帧率
+        "LoaclVLURL": "XXXXX",  # 修改为你对应的llm地址
+        "VLapi_key": 'XXXXXX',  # 修改为你的api key
     }
-
-    def __new__(cls):
-        """确保单例模式"""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
+        super().__init__("Camera", "摄像头管理")
         """初始化摄像头管理器"""
         if hasattr(self, '_initialized'):
             return
         self._initialized = True
-
         # 加载配置
         self._config = self._load_config()
         self.cap = None
         self.is_running = False
         self.camera_thread = None
+        self.result=""
+        # 摄像头控制器
+        self.VL=VL.ImageAnalyzer.get_instance().init(self._config['VLapi_key'], self._config['LoaclVLURL'])
+        self.VL= VL.ImageAnalyzer.get_instance()
+        print(f"[虚拟设备] 摄像头设备初始化完成")
+
+        self.add_property_and_method()#定义设备方法与状态属性
+
+    def add_property_and_method(self):
+        # 定义属性
+        self.add_property("power", "摄像头是否打开", lambda: self.is_running )
+        self.add_property("result", "识别画面的内容", lambda: self.result )
+        # 定义方法
+        self.add_method("start_camera", "打开摄像头", [],
+                        lambda params: self.start_camera())
+
+        self.add_method("stop_camera", "关闭摄像头", [],
+                        lambda params: self.stop_camera())
+
+        self.add_method("capture_frame_to_base64", "识别画面", [],
+                        lambda params: self.capture_frame_to_base64())
+
 
     def _load_config(self) -> Dict[str, Any]:
         """加载配置文件，如果不存在则创建"""
@@ -73,13 +86,12 @@ class CameraManager:
             logger.error(f"Error saving config: {e}")
             return False
 
-    @staticmethod
-    def _merge_configs(default: dict, custom: dict) -> dict:
+    def _merge_configs(self, default: dict, custom: dict) -> dict:
         """递归合并配置字典"""
         result = default.copy()
         for key, value in custom.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = CameraManager._merge_configs(result[key], value)
+                result[key] = self._merge_configs(result[key], value)
             else:
                 result[key] = value
         return result
@@ -154,6 +166,8 @@ class CameraManager:
         self.camera_thread = threading.Thread(target=self._camera_loop, daemon=True)
         self.camera_thread.start()
         logger.info("摄像头线程已启动")
+        print(f"[虚拟设备] 摄像头线程已启动")
+        return {"status": "success", "message": "摄像头线程已打开"}
 
     def capture_frame_to_base64(self):
         """截取当前画面并转换为 Base64 编码"""
@@ -171,7 +185,10 @@ class CameraManager:
 
         # 将 JPEG 图像转换为 Base64 编码
         frame_base64 = base64.b64encode(buffer).decode('utf-8')
-        return frame_base64
+        self.result=self.VL.analyze_image(frame_base64)
+        logger.info("画面已经识别到啦")
+        print(f"[虚拟设备] 画面已经识别完成")
+        return {"status": 'success', "message": "识别成功","result":self.result}
     def stop_camera(self):
         """停止摄像头线程"""
         self.is_running = False
@@ -179,13 +196,7 @@ class CameraManager:
             self.camera_thread.join()  # 等待线程结束
             self.camera_thread = None
             logger.info("摄像头线程已停止")
-
-    @classmethod
-    def get_instance(cls):
-        """获取摄像头管理器实例（线程安全）"""
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls()
-        return cls._instance
+            print(f"[虚拟设备] 摄像头线程已停止")
+            return {"status": "success", "message": "摄像头线程已停止"}
 
 

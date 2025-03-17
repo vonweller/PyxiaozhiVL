@@ -1,0 +1,8 @@
+{
+  "camera_index": 0,
+  "frame_width": 640,
+  "frame_height": 480,
+  "fps": 30,
+  "LoaclVLURL": "https://open.bigmodel.cn/api/paas/v4/",
+  "VLapi_key": "d4e950a5e347498386476064ec744ce9.gOZWcv4905ca2ZIR"
+}

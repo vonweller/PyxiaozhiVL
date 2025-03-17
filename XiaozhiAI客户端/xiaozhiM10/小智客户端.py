@@ -6,8 +6,8 @@ import opuslib
 import websocket
 from pynput import keyboard as pynput_keyboard
 import logging
-import Camera
-import VL
+from xiaozhiM10.src.iot.thing_manager import ThingManager
+
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -70,7 +70,7 @@ class WebSocketClient:
                     }
                     self.ws.send(json.dumps(vl_message))
                 else:
-                    VL.ImageAnalyzer.get_instance().analyze_image(base64_image=frame_base64, prompt=message)
+                    pass
             else:
                 if isinstance(message, dict):
                     self.ws.send(json.dumps(message))
@@ -200,13 +200,10 @@ class VoiceAssistant:
             on_press=self.on_key_press,
             on_release=self.on_key_release
         )
-        # 摄像头控制器
-        VL.ImageAnalyzer.get_instance().init(config['VLapi_key'], config['LoaclVLURL'])
-        self.camera = Camera.CameraManager.get_instance()
-        self.VL=VL.ImageAnalyzer.get_instance()
         # 启动音频设备
         self.audio_handler.open_input_stream()
         self.audio_handler.open_output_stream()
+        self.thing_manager=ThingManager.get_instance()
 
     def start(self):
         """启动语音助手服务"""
@@ -219,6 +216,8 @@ class VoiceAssistant:
         # 启动音频发送线程
         self.audio_send_thread = threading.Thread(target=self.send_audio)
         self.audio_send_thread.start()
+        #初始化IOT设备
+        self._initialize_iot_devices()
 
     def check_ota_version(self):
         """检查OTA固件版本"""
@@ -253,6 +252,7 @@ class VoiceAssistant:
         try:
             # 二进制消息处理（音频数据）
             if isinstance(message, bytes):
+                #print('收到服务端语音消息')
                 pcm_data = self.audio_handler.decode_audio(message)
                 self.audio_handler.output_stream.write(pcm_data)
                 return
@@ -272,30 +272,12 @@ class VoiceAssistant:
             elif msg['type'] == 'goodbye':
                 self.session_id = None
                 self.listen_state = "stop"
-
-            self.iot_cmd_handle(msg)
+            elif msg['type'] == 'iot':
+                print('iot处理')
+                self._handle_iot_message(msg)
         except json.JSONDecodeError:
             logging.error("收到非JSON格式消息")
 
-    def iot_cmd_handle(self, msg):
-        try:
-            if msg['type'] == 'stt':
-                if "打开摄像头" in msg['text'] or "开摄像头" in msg['text']:
-                        print('摄像头打开')
-                        self.camera.start_camera()
-                if "关闭摄像头" in msg['text'] or "关摄像头" in msg['text']:
-                    print('摄像头关闭')
-                    self.camera.stop_camera()
-                if ("拍照" in msg['text']
-                    or '识别场景' in msg['text']
-                    or '识别物体' in msg['text']
-                    or '导航' in msg['text']
-                    or '识别' in msg['text']
-                    or '识别画面' in msg['text']  ):
-                    print('自定义服务端视觉能力')
-                    self.ws_client.send_message(message=msg['text'],frame_base64=self.camera.capture_frame_to_base64())
-        finally:
-            pass
     def start_listening(self):
         """启动语音监听"""
         if not self.is_manual_mode and self.ws_client.is_connected:
@@ -354,12 +336,75 @@ class VoiceAssistant:
                 "state": "stop"
             })
 
+
+
+    def _handle_iot_message(self, data):
+        """处理物联网消息"""
+        from src.iot.thing_manager import ThingManager
+        thing_manager = ThingManager.get_instance()
+
+        commands = data.get("commands", [])
+        print(commands)
+        for command in commands:
+            try:
+                result = thing_manager.invoke(command)
+                print(f"执行物联网命令结果: {result}")
+
+                # 命令执行后更新设备状态
+                self._update_iot_states()
+            except Exception as e:
+                print(f"执行物联网命令失败: {e}")
+
+    def _update_iot_states(self):
+        """更新物联网设备状态"""
+        from src.iot.thing_manager import ThingManager
+        thing_manager = ThingManager.get_instance()
+
+        # 获取当前设备状态
+        states_json = thing_manager.get_states_json()
+        print(states_json)
+        # 发送状态更新
+        self.send_iot_states(states_json)
+        print("物联网设备状态已更新")
+
+    def send_iot_descriptors(self, descriptors):
+        """发送物联网设备描述信息"""
+        message = {
+            "session_id": self.session_id,
+            "type": "iot",
+            "descriptors": json.loads(descriptors) if isinstance(descriptors, str) else descriptors
+        }
+        print(message)
+        self.ws_client.send_message(message)
+
+    def send_iot_states(self, states):
+        """发送物联网设备状态信息"""
+        message = {
+            "session_id": self.session_id,
+            "type": "iot",
+            "states": json.loads(states) if isinstance(states, str) else states
+        }
+        self.ws_client.send_message(message)
+
+    def _initialize_iot_devices(self):
+        """初始化物联网设备"""
+        from src.iot.thing_manager import ThingManager
+        from src.iot.things.lamp import Lamp
+        from src.iot.things.speaker import Speaker
+        from src.iot.things.Camera import Camera
+        # 获取物联网设备管理器实例
+        thing_manager = ThingManager.get_instance()
+        # 添加设备
+        thing_manager.add_thing(Lamp())
+        thing_manager.add_thing(Speaker())
+        thing_manager.add_thing(Camera())
+        self.send_iot_descriptors(thing_manager.get_descriptors_json())
+
     def shutdown(self):
         """关闭所有资源"""
         self.ws_client.disconnect()
         self.audio_handler.close()
         self.keyboard_listener.stop()
-
 
 if __name__ == "__main__":
     # 配置参数（建议从配置文件读取）
@@ -368,11 +413,9 @@ if __name__ == "__main__":
         'device_mac': '04:68:74:27:12:c8',
         'device_uuid': 'test-uuid',
         'ws_url': 'wss://api.tenclass.net/xiaozhi/v1/',# 小智官方
-        #'ws_url': 'ws://192.168.10.6:8000',           #自定义服务端https://github.com/vonweller/xiaozhi-esp32-server
+        #'ws_url': 'ws://192.168.10.9:8000',           #自定义服务端https://github.com/vonweller/xiaozhi-esp32-server
         'ota_url': 'https://api.tenclass.net/xiaozhi/ota/',
         'manual_mode': False,
-        "LoaclVLURL":"https://dashscope.aliyuncs.com/compatible-mode/v1", #修改为你对应的llm地址
-        "VLapi_key":'sk-kkkkkkkkkk',#修改为你的api key
     }
     assistant = VoiceAssistant(config)
     try:
